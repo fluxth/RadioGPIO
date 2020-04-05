@@ -1,4 +1,6 @@
 __pycache__/
+.env/
+.stash/
 
 *.pyc
 *.pyo
