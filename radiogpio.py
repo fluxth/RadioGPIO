@@ -1,9 +1,10 @@
 import threading
 import logging
 import time
-import os.path
-import json
+import os
 import sys
+import json
+import codecs
 
 import exceptions
 from ui import FxGpioUI
@@ -60,12 +61,15 @@ class FxGpioApp(ThreadBase):
     # ThreadName
     name: str = 'MainThread'
 
+    # run dir
+    run_dir: str = None
+
     # SubThreads
     subthread: Map = None
-    module_status: dict = {}
+    module_status: dict = None
 
     # ActionsList
-    actions: list = []
+    actions: list = None
 
     UI = None
 
@@ -84,7 +88,11 @@ class FxGpioApp(ThreadBase):
     config = {
         'Interface': {
             'Theme': 'SystemDefault',
-            'Buttons': {},
+            'Buttons': {
+                'Width': 2,
+                'Height': 20,
+                'Columns': [],
+            },
             'Keyboard': {},
         },
         'Actions': [],
@@ -98,7 +106,7 @@ class FxGpioApp(ThreadBase):
                 'Encoding': 'utf-8',
                 'Separator': '\n',
                 'AllowedIP': [
-                    '127.*.*.*',
+                    '127.0.0.0/8',
                 ],
                 'InputCommands': [],
             },
@@ -128,15 +136,23 @@ class FxGpioApp(ThreadBase):
         ('Livewire', None),
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, run_dir, *args, **kwargs):
         super(FxGpioApp, self).__init__(*args, **kwargs)
 
-        self.restart = False
-        self.subthread = Map({})
+        self.run_dir = run_dir
+        self.init_properties()
 
         logging.debug(f'Initializing main app...')
+
+        sg.popup_quick_message(f'Initializing {self.appname}...', background_color='black', text_color='white', auto_close=True, non_blocking=True)
         self.init_app()
         self.initialized = True
+
+    def init_properties(self):
+        self.restart = False
+        self.subthread = Map({})
+        self.actions = []
+        self.module_status = {}
 
     def init_app(self):
         init_sequence = (
@@ -190,12 +206,12 @@ class FxGpioApp(ThreadBase):
         
     def save_config_file(self):
         logging.debug('Saving current configuration to file')
-        with open(self.config_file, 'w') as f:
+        with codecs.open(self.config_file, 'w', 'utf-8') as f:
             json.dump(self.config, f, indent=4)
 
     def load_config_file(self):
         logging.debug('Loading configuration from file')
-        with open(self.config_file, 'r') as f:
+        with codecs.open(self.config_file, 'r', 'utf-8') as f:
             try:
                 self.config = json.load(f)
             except json.decoder.JSONDecodeError as e:
@@ -238,11 +254,12 @@ class FxGpioApp(ThreadBase):
     def tick(self):
         self.UI.ui_tick()
 
-        # cur_time = time.time_ns() // 1000000
-        # if self.last_tick is not None:
-        #     self.tps = 1000 / (cur_time-self.last_tick)
+        cur_time = time.time_ns() // 1000000
+        if self.last_tick is not None:
+            self.tps = 1000 / (cur_time-self.last_tick)
 
-        # self.last_tick = cur_time
+        self.last_tick = cur_time
+        # print(self.tps)
 
     def run(self):
         if not self.initialized:
@@ -290,6 +307,8 @@ class FxGpioApp(ThreadBase):
         for module in self.subthread.values():
             module.join(10)
 
+        self.UI.post_shutdown()
+
         logging.info('Main thread exiting.')
         return 0
 
@@ -297,12 +316,16 @@ if __name__ == '__main__':
     # Setup logging
     logging.basicConfig(format='%(asctime)s [%(threadName)s] %(levelname)s: %(message)s', datefmt='%d %b %Y %H:%M:%S', level=logging.INFO)
     logging.debug('Logging initialized.')
+
+    run_dir = getattr(sys, '_MEIPASS', False)
+    if not run_dir:
+        run_dir = os.path.dirname(os.path.abspath(__file__))
     
     exit_code: int = 0
     while True:
         logging.info('Creating main application...')
         try:
-            app = FxGpioApp()
+            app = FxGpioApp(run_dir=run_dir)
             try:
                 logging.debug('Running main app')
                 exit_code = app.run()
@@ -311,12 +334,14 @@ if __name__ == '__main__':
                 exit_code = app.shutdown(True)
 
             if app.restart is True:
-                # Remove?
                 logging.warning('Restart flag detected, restarting main app...')
-                continue
-        except BaseException as e:
+                os.execl(sys.executable, *sys.argv)
+                break
+
+        except Exception as e:
             logging.exception(e)
             exceptions.exception_handler_window(e)
+            os._exit(1)
 
         break
 
