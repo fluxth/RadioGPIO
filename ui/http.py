@@ -9,9 +9,7 @@ class HTTPManualSendWindow(WindowBase):
 
     def init_components(self):
         self.Title = 'HTTP Manual Send'
-        # self._Size = (500, 300)
-        # self.NoTitleBar = True
-        # self.GrabAnywhere = True
+        self.KeepOnTop = True
 
         self.layout([  
             [
