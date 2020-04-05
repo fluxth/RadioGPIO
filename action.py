@@ -30,8 +30,10 @@ class Action():
         logging.info(f'Running action {self}...')
         if self.sequence.pre_run() is not False:
             self.sequence.run()
+            self.app.UI.notify(f'Action "{self.name}" with {self.sequence.length()} sequence items ran successfully!')
         else:
             logging.error(f'Cannot run action {self}!')
+
 
 class ActionSequence():
 
@@ -49,13 +51,16 @@ class ActionSequence():
         for sequence_dict in sequence_list:
             self.sequence_list.append(ActionSequenceItem(self, sequence_dict))
 
+    def length(self):
+        return len(self.sequence_list)
+
     def pre_run(self):
         for sequence_item in self.sequence_list:
             if sequence_item.pre_run() is False:
                 return False
 
     def run(self):
-        logging.debug(f'Action sequence of action "{self.action}" running {len(self.sequence_list)} tasks.')
+        logging.debug(f'Action sequence of action "{self.action}" running {self.length()} tasks.')
         for sequence_item in self.sequence_list:
             sequence_item.run()
 

@@ -3,7 +3,7 @@ import logging
 import ipaddress
 
 from helpers import Map
-from helpers.enum import ModuleStatus
+from helpers.enum import ModuleStatus, ModuleIOType
 from threads import SubThreadBase
 
 from ui.gpio import GPOManualSendWindow
@@ -76,6 +76,8 @@ class GPIOThread(SubThreadBase):
         
 
 class GPIThread(GPIOThread):
+
+    module_io_type: ModuleIOType = ModuleIOType.Input
 
     queue_blocking: bool = False
     queue_rate: int = 2 # Hz
@@ -199,6 +201,9 @@ class GPIThread(GPIOThread):
 
 
 class GPOThread(GPIOThread):
+
+    module_io_type: ModuleIOType = ModuleIOType.Output
+
     def init(self):
         super(GPOThread, self).init()
 

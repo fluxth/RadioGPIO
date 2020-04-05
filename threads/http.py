@@ -6,7 +6,7 @@ from threads import SubThreadBase
 
 import exceptions
 from ui.http import HTTPManualSendWindow
-from helpers.enum import ModuleStatus
+from helpers.enum import ModuleStatus, ModuleIOType
 
 class HTTPThread(SubThreadBase):
     config = {}
@@ -34,10 +34,16 @@ class HTTPThread(SubThreadBase):
         
 
 class HTTPServerThread(HTTPThread):
+
+    module_io_type: ModuleIOType = ModuleIOType.Input
+
     # Copy from GPIThread
     pass
 
 class HTTPClientThread(HTTPThread):
+
+    module_io_type: ModuleIOType = ModuleIOType.Output
+
     def init(self):
         super(HTTPClientThread, self).init()
 

@@ -6,7 +6,7 @@ import time
 import exceptions
 
 from helpers import multi_getattr
-from helpers.enum import ModuleStatus
+from helpers.enum import ModuleStatus, ModuleIOType
 
 class ThreadBase():
 
@@ -142,6 +142,9 @@ class SubThreadBase(ThreadBase, Thread):
 
     # ModuleId
     module_id: str = ''
+
+    # ModuleType
+    module_io_type: ModuleIOType = ModuleIOType.Invalid
 
     # Init Successful
     initialized = False
