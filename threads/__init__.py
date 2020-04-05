@@ -6,6 +6,7 @@ import time
 import exceptions
 
 from helpers import multi_getattr
+from helpers.enum import ModuleStatus
 
 class ThreadBase():
 
@@ -56,8 +57,9 @@ class ThreadBase():
             item = None
 
         if item is None:
-            logging.debug(f'QueueItem is None, waiting {self.queue_cooldown} sec cooldown...')
-            time.sleep(self.queue_cooldown)
+            if self.queue_cooldown != 0:
+                logging.debug(f'QueueItem is None, waiting {self.queue_cooldown} sec cooldown...')
+                time.sleep(self.queue_cooldown)
             return False
 
         if item.target is not self.__class__:
@@ -104,11 +106,11 @@ class ThreadBase():
             self.tick()
 
             queue_result = self.wait_for_queue()
-            if queue_result is False:
-                logging.debug('Queue result is False, continuing...')
+            if queue_result is not False:
+                logging.debug('Queue result is not False, continuing...')
                 continue
 
-            if not self.queue_blocking:
+            if not self.queue_blocking and self.queue_rate != 0:
                 time.sleep(1 / self.queue_rate)
 
     def run(self):
@@ -141,6 +143,9 @@ class SubThreadBase(ThreadBase, Thread):
     # ModuleId
     module_id: str = ''
 
+    # Init Successful
+    initialized = False
+
     # consts
     is_subthread = True
 
@@ -148,11 +153,17 @@ class SubThreadBase(ThreadBase, Thread):
         Thread.__init__(self, *args, **kwargs)
         ThreadBase.__init__(self, *args, **kwargs)
 
+        self.initialized = False
         self.parent = parent
         self.module_id = module_id
 
+        self.parent.update_module_status(self, ModuleStatus.Enabled)
+
         self.init_identity()
         self.init()
+
+        if self.initialized:
+            self.parent.update_module_status(self, ModuleStatus.Initialized, update_if=ModuleStatus.Enabled)
 
     def init(self):
         pass
@@ -160,11 +171,29 @@ class SubThreadBase(ThreadBase, Thread):
     def init_identity(self):
         self.name = self.__class__.__name__
 
+    def main_loop(self):
+        self.parent.update_module_status(self, ModuleStatus.Running, update_if=ModuleStatus.Initialized)
+        super(SubThreadBase, self).main_loop()
+
+    def run_output_command(self, output_command, delay=None):
+        if delay is not None:
+            logging.info(f'Delaying action execution by {delay} sec...')
+            time.sleep(delay)
+
+        self.run_output_command_handler(output_command)
+
+    def run_output_command_handler(self, output_command):
+        pass
+
+    def cleanup(self):
+        pass
+
     def shutdown(self):
         if self.exit:
             return
 
         logging.warning(f'Thread {self.name} shutting down!')
+        self.cleanup()
         self.exit = True
 
 class FxQueueItem():
