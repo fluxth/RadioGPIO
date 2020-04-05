@@ -18,3 +18,9 @@ class ActionSequenceItemType(Enum):
     NoOp = 0
     Wait = 1
     RunOutputCommand = 2
+
+class ModuleIOType(Enum):
+    Invalid = 0
+    Input = 1
+    Output = 2
+    Bidirectional = 3
