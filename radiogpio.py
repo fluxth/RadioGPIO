@@ -9,10 +9,13 @@ import exceptions
 from ui import FxGpioUI
 from threads import ThreadBase, FxQueueItem
 from threads.gpio import GPIThread, GPOThread
+from threads.http import HTTPClientThread
 
 import PySimpleGUI as sg
 
 from helpers import Map, multi_getattr
+from helpers.enum import ModuleStatus
+from action import Action
 
 def terminate_process(exit_code):
     logging.info(f'Process terminating with exit code {exit_code}.')
@@ -33,8 +36,11 @@ class ModuleIterator:
             
             module = self.module_map[self.index]
             key = module[0]
-            if self.config[key].get('Enabled', False) is True:
-                value = module
+
+            module_config = self.config.get(key, None)
+            if module_config is not None:
+                if module_config.get('Enabled', False) is True:
+                    value = module
 
             self.index += 1
             if value is not None and value[1] is not None:
@@ -55,22 +61,29 @@ class FxGpioApp(ThreadBase):
     name: str = 'MainThread'
 
     # SubThreads
-    subthread: Map = Map()
+    subthread: Map = None
+    module_status: dict = {}
+
+    # ActionsList
+    actions: list = []
 
     UI = None
+
     initialized = False
 
     last_tick = None
     tps = None
 
     is_mainthread = True
+
+    queue_blocking: bool = False
     queue_rate: int = 0
     queue_cooldown: float = 0
 
     config_file = './config.json'
     config = {
         'Interface': {
-            'Theme': 'SystemDefault1',
+            'Theme': 'SystemDefault',
             'Buttons': {},
             'Keyboard': {},
         },
@@ -81,8 +94,12 @@ class FxGpioApp(ThreadBase):
                 'Protocol': 'tcp',
                 'Listen': '0.0.0.0',
                 'Port': 9310,
+                'KeepOpen': False,
                 'Encoding': 'utf-8',
                 'Separator': '\n',
+                'AllowedIP': [
+                    '127.*.*.*',
+                ],
                 'InputCommands': [],
             },
             'GPO': {
@@ -106,7 +123,8 @@ class FxGpioApp(ThreadBase):
     module_map = (
         ('GPI', GPIThread),
         ('GPO', GPOThread),
-        ('HTTPClient', None),
+        ('HTTPClient', HTTPClientThread),
+        ('HTTPServer', None),
         ('Livewire', None),
     )
 
@@ -114,6 +132,7 @@ class FxGpioApp(ThreadBase):
         super(FxGpioApp, self).__init__(*args, **kwargs)
 
         self.restart = False
+        self.subthread = Map({})
 
         logging.debug(f'Initializing main app...')
         self.init_app()
@@ -126,6 +145,7 @@ class FxGpioApp(ThreadBase):
             { 'method': 'init_config' },
             { 'method': 'UI.post_init' },
             { 'method': 'init_subthreads' },
+            { 'method': 'init_actions' },
         )
 
         for init_ptr in init_sequence:
@@ -136,7 +156,7 @@ class FxGpioApp(ThreadBase):
                 logging.error(e.get_caught_str())
                 if type(self.UI) is FxGpioUI and self.UI.simple_init:
                     self.UI.show_error(
-                        f'{self.appname} Initialization Error', 
+                        f'{self.appname} failed to initialize.', 
                         e.get_alert_str(),
                         custom_text=('Exit' if e.fatal else 'OK')
                     )  
@@ -148,7 +168,6 @@ class FxGpioApp(ThreadBase):
 
     def init_settings(self):
         logging.debug('Initializing internal settings...')
-        self.queue_blocking = False
 
     def init_ui(self):
         logging.debug('Initializing user interface...')
@@ -186,6 +205,12 @@ class FxGpioApp(ThreadBase):
         module_config = self.config.get('Modules', {})
         return iter(ModuleIterator(module_config, self.module_map))
 
+    def init_actions(self):
+        actions = self.config.get('Actions', [])
+
+        for action in actions:
+            self.actions.append(Action(self, action))
+
     def init_subthreads(self):
         logging.debug('Initializing subthreads...')
         
@@ -211,13 +236,13 @@ class FxGpioApp(ThreadBase):
         self.UI.app_start()
 
     def tick(self):
-        self.UI.window_tick()
+        self.UI.ui_tick()
 
-        cur_time = time.time_ns() // 1000000
-        if self.last_tick is not None:
-            self.tps = 1000 / (cur_time-self.last_tick)
+        # cur_time = time.time_ns() // 1000000
+        # if self.last_tick is not None:
+        #     self.tps = 1000 / (cur_time-self.last_tick)
 
-        self.last_tick = cur_time
+        # self.last_tick = cur_time
 
     def run(self):
         if not self.initialized:
@@ -225,9 +250,26 @@ class FxGpioApp(ThreadBase):
 
         super(FxGpioApp, self).main_loop()
         return self.post_shutdown()
-    
-    def closeEvent(self, event):
-        self.shutdown()
+
+    def run_action(self, action_name):
+        for action in self.actions:
+            if action.name == action_name:
+                return action.run()
+
+    def run_action_later(self, *args, **kwargs):
+        return self.run_later('run_action').with_args(*args, **kwargs)
+
+    def update_module_status(self, module, status, update_if=None):
+        prev_status = self.module_status.get(module.module_id, None)
+        if update_if is not None:
+            if not update_if == prev_status:
+                return False
+
+        self.module_status[module.module_id] = status
+        return status
+
+    def update_module_status_later(self, *args, **kwargs):
+        return self.run_later('update_module_status').with_args(*args, **kwargs)
 
     def shutdown(self, by_exception=False):
         if self.exit:
@@ -236,6 +278,7 @@ class FxGpioApp(ThreadBase):
         logging.warning(f'{self.appname} shutting down!')
         
         self.shutdown_subthreads()
+        self.UI.shutdown()
         self.exit = True
 
         if by_exception:
@@ -256,7 +299,6 @@ if __name__ == '__main__':
     logging.debug('Logging initialized.')
     
     exit_code: int = 0
-
     while True:
         logging.info('Creating main application...')
         try:
@@ -267,13 +309,14 @@ if __name__ == '__main__':
             except KeyboardInterrupt:
                 logging.warning('SIGINT Detected!')
                 exit_code = app.shutdown(True)
-        except Exception as e:
-            logging.exception(e)
-            raise
 
-        if app.restart is True:
-            logging.warning('Restart flag detected, restarting main app...')
-            continue
+            if app.restart is True:
+                # Remove?
+                logging.warning('Restart flag detected, restarting main app...')
+                continue
+        except BaseException as e:
+            logging.exception(e)
+            exceptions.exception_handler_window(e)
 
         break
 
