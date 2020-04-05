@@ -1,8 +1,10 @@
 import PySimpleGUI as sg
+import logging
 
 import exceptions
 from helpers import Map
 from ui.app import MainWindow
+from ui.gpio import GPOManualSendWindow
 
 class FxGpioUI():
     simple_init: bool = False
@@ -12,9 +14,10 @@ class FxGpioUI():
     config: dict = None
 
     main_window: MainWindow = None
-    window: Map = Map()
+    window: list = []
 
-    default_theme: str = 'SystemDefault1'
+    default_theme: str = 'SystemDefault'
+    target_tick_length: int = 50
 
     def __init__(self, app):
         self.app = app
@@ -38,65 +41,65 @@ class FxGpioUI():
         raise exceptions.FxUIException(f'Theme "{theme}" could not be loaded.')
 
     def app_start(self):
-        self.main_window = MainWindow(self)
+        self.main_window = MainWindow(ui=self)
 
         # menu_def = ['BLANK', ['&Open', '---', '&Save', ['1', '2', ['a', 'b']], '&Properties', 'E&xit']]
         # self.tray = sg.SystemTray(menu=menu_def, data_base64=sg.DEFAULT_BASE64_ICON)
 
     def show_alert(self, *args, **kwargs):
-        return sg.Popup(*args, no_titlebar=True, grab_anywhere=True, **kwargs)
+        return sg.Popup(*args, no_titlebar=True, keep_on_top=True, grab_anywhere=True, **kwargs)
 
     def show_error(self, *args, **kwargs):
         kwargs['button_color'] = ('white', 'red')
         return self.show_alert(*args, **kwargs)
 
-    def create_window(self, name, *args, **kwargs):
-        self.window[name] = sg.Window(*args, **kwargs)
-        return self.window[name]
+    def create_window_later(self, *args, **kwargs):
+        self.app.run_later('UI.create_window').with_args(*args, **kwargs)
 
-    def close_window(self, name):
-        return self.window[name].close()
+    def create_window(self, win_class, *args, user_data=None, **kwargs):
+        window = win_class(*args, **kwargs, ui=self, user_data=user_data)
 
-    def window_tick(self):
+        create = True
+        count = 0
+        for win in self.window:
+            if type(win) is win_class:
+                count += 1
+                max_inst = window.max_instance
+                if count >= max_inst:
+                    create = False
+                    logging.error(f'Cannot create more than {max_inst} instance of {win_class.__name__}')
+                    win.BringToFront()
+                    break
+
+        if create:
+            self.window.append(window)
+
+    def close_window(self, window_obj):
+        retval = window_obj.close()
+        self.window.remove(window_obj)
+        return retval
+
+    def calculate_tick_length(self, pad=1):
+        return self.target_tick_length // ( len(self.window) + pad )
+
+    def ui_tick(self):
+
+        # TODO: Make this a property instead, reduce CPU
+        tick_length = self.calculate_tick_length(pad=1)
+
+        # MainWindow
+        event, values = self.main_window.Read(timeout=tick_length)
+        self.main_window.process_func(event, values)
+
         # self.tray.Read(timeout=100)
-        event, value = self.main_window.Read(timeout=100)
-        
-        if self.app.tps is not None:
-            self.main_window['tps'].update(f'TPS: {self.app.tps:.2f}')
 
-        if event == 'Change Theme':
-            self.app.config['Interface']['Theme'] = value[0]
-            self.app.save_config_file()
-            self.app.restart = True
-            event = None
+        # SubWindows
+        for win in self.window:
+            event, values = win.Read(timeout=tick_length)
+            win.process_func(event, values)
 
-        if event is None:
-            self.main_window.close()
-            self.app.shutdown()
+    def shutdown(self):
+        for win in self.window:
+            self.close_window(win)
 
-        # winkey = 'gpo_manual_send_dialog'
-        # if winkey in self.window:
-        #     ok = False
-
-        #     event, values = self.window[winkey].Read(timeout=50)
-
-        #     if event in (None, 'Cancel'):
-        #         self.close_window(winkey)
-        #         self.app.shutdown()
-        #     elif event == 'OK':
-        #         if values[0] != '':
-        #             ok = values[0]
-        #             self.close_window(winkey)
-
-    def gpo_manual_send(self, cmd_list=[]):
-        layout = [  
-            [sg.Text('Send GPO to Zetta')],
-            [
-                sg.Text('Send Command:'), 
-                sg.Combo(values=cmd_list, size=(30, 1), default_value='( None )')
-            ],
-            [sg.OK(), sg.Cancel()]
-        ]
-
-        self.create_window('gpo_manual_send_dialog', 'GPO Manual Send', layout)
-
+        self.main_window.close()
