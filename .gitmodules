@@ -1,0 +1,3 @@
+[submodule "helpers/lwrpclient"]
+	path = helpers/lwrpclient
+	url = https://github.com/fluxTH/Livewire-Routing-Protocol-Client.git
