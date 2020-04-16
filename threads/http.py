@@ -42,6 +42,7 @@ class HTTPServerThread(HTTPThread):
 
 class HTTPClientThread(HTTPThread):
 
+    display_name: str = 'HTTPOut'
     module_io_type: ModuleIOType = ModuleIOType.Output
 
     def init(self):

@@ -10,26 +10,26 @@ from helpers.enum import ModuleStatus, ModuleIOType
 
 class ThreadBase():
 
-    # ThreadName
+    # Thread Name
     name: str = None
 
-    # ThreadQueue
+    # Thread queue
     queue: Queue = None
 
-    # ThreadExitFlag
+    # Thread exit flag
     exit: bool = False
 
-    # QueueBlocking / Rate
+    # Queue settings
     queue_blocking: bool = True
     queue_rate: int = 5      # Hz
     queue_timeout: int = 10  # sec
     queue_cooldown: float = 0.2 # sec
 
-    # const for self checking
+    # Consts for self checking
     is_mainthread = False
     is_subthread = False
 
-    # properties of children
+    # Properties of children
     UI = None
     parent = None
 
@@ -137,19 +137,22 @@ class ThreadBase():
 
 class SubThreadBase(ThreadBase, Thread):
 
-    # ParentThread
+    # Display name for main window status
+    display_name: str = None
+
+    # Parent Thread
     parent: ThreadBase = None
 
-    # ModuleId
+    # Module ID
     module_id: str = ''
 
-    # ModuleType
+    # Module IO type
     module_io_type: ModuleIOType = ModuleIOType.Invalid
 
     # Init Successful
     initialized = False
 
-    # consts
+    # Consts for self checking
     is_subthread = True
 
     def __init__(self, parent, module_id, *args, **kwargs):
@@ -173,6 +176,8 @@ class SubThreadBase(ThreadBase, Thread):
         
     def init_identity(self):
         self.name = self.__class__.__name__
+        if self.display_name is None:
+            self.display_name = self.module_id
 
     def main_loop(self):
         self.parent.update_module_status(self, ModuleStatus.Running, update_if=ModuleStatus.Initialized)
@@ -200,14 +205,14 @@ class SubThreadBase(ThreadBase, Thread):
         self.exit = True
 
 class FxQueueItem():
-    # class of target thread
+    # Class of target thread
     target: ThreadBase.__class__ = None
 
-    # object of sender
+    # Object of sender
     sender: object = None
     auto_add_queue_sender: bool = False
 
-    # callback
+    # Callback
     callback = None
 
     # str of target thread's class method

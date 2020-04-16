@@ -100,23 +100,24 @@ class MainWindow(WindowBase):
         modules_row = []
         modules_menu = []
         for module in self.ui.app.subthread.values():
-            module_text = module.module_id
+            module_text = module.display_name
+            module_id = module.module_id
 
             # Status display
-            modules_row.append(sg.Text(text=module_text, key=f'status_{module_text}', font=('Consolas', 10), text_color='grey'))
+            modules_row.append(sg.Text(text=module_text, key=f'status_{module_id}', font=('Consolas', 10), text_color='grey'))
 
             # Menubar
             modules_menu.append(module_text)
 
             submenu = []
-            submenu.append(f'Reload::menu_reload.{module_text}')
+            submenu.append(f'Reload::menu_reload.{module_id}')
 
             submenu.append('---')
             if module.module_io_type is ModuleIOType.Output or module.module_io_type is ModuleIOType.Bidirectional:
-                submenu.append(f'Manual send::manual_send.{module_text}')
+                submenu.append(f'Manual send::manual_send.{module_id}')
 
             if module.module_io_type is ModuleIOType.Input or module.module_io_type is ModuleIOType.Bidirectional:
-                submenu.append(f'Test input::manual_send.{module_text}')
+                submenu.append(f'Test input::manual_send.{module_id}')
 
             modules_menu.append(submenu)
 
