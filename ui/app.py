@@ -1,7 +1,8 @@
 import PySimpleGUI as sg
 import logging
+import time
 
-from helpers.enum import ModuleStatus, ModuleIOType
+from helpers.enum import ModuleStatus, ModuleStatusMask, ModuleIOType
 
 from ui.base import WindowBase
 from ui.icons import APP_ICON_ICO_BASE64
@@ -151,34 +152,42 @@ class MainWindow(WindowBase):
         for module_id in self.ui.app.module_status:
             status = self.ui.app.module_status[module_id]
 
-            if status is ModuleStatus.ActivityRunning:
+            if status == ModuleStatus.Running | ModuleStatus.Activity:
                 self[f'status_{module_id}'].Update(text_color='white', background_color='green')
                 self.ui.app.module_status[module_id] = ModuleStatus.Running
                 continue
 
-            if status is ModuleStatus.ActivityError or status is ModuleStatus.ActivityKeepError:
+            if status == ModuleStatus.Error | ModuleStatus.Activity:
                 self[f'status_{module_id}'].Update(text_color='white', background_color='red')
-                self.ui.app.module_status[module_id] = ModuleStatus.Error if status is ModuleStatus.ActivityKeepError else ModuleStatus.Running
+                if status & ModuleStatusMask.KeepActivityMask == ModuleStatus.KeepActivity:
+                    self.ui.app.module_status[module_id] = ModuleStatus.Error
+                else:
+                    self.ui.app.module_status[module_id] = ModuleStatus.Running
+
                 continue
 
-            if status is ModuleStatus.ActivityWarning or status is ModuleStatus.ActivityKeepWarning:
+            if status == ModuleStatus.Warning | ModuleStatus.Activity:
                 self[f'status_{module_id}'].Update(text_color='white', background_color='orange')
-                self.ui.app.module_status[module_id] = ModuleStatus.Warning if status is ModuleStatus.ActivityKeepWarning else ModuleStatus.Running
+                if status & ModuleStatusMask.KeepActivityMask == ModuleStatus.KeepActivity:
+                    self.ui.app.module_status[module_id] = ModuleStatus.Warning
+                else:
+                    self.ui.app.module_status[module_id] = ModuleStatus.Running
+                    
                 continue
             
-            if status is ModuleStatus.Running:
+            if status & ModuleStatusMask.StatusMask == ModuleStatus.Running:
                 self[f'status_{module_id}'].Update(text_color='green', background_color=self.get_theme_color('BACKGROUND'))
                 continue
 
-            if status is ModuleStatus.Error:
+            if status & ModuleStatusMask.StatusMask == ModuleStatus.Error:
                 self[f'status_{module_id}'].Update(text_color='red', background_color=self.get_theme_color('BACKGROUND'))
                 continue
 
-            if status is ModuleStatus.Warning:
+            if status & ModuleStatusMask.StatusMask == ModuleStatus.Warning:
                 self[f'status_{module_id}'].Update(text_color='orange', background_color=self.get_theme_color('BACKGROUND'))
                 continue
                 
-            if status is ModuleStatus.Initialized:
+            if status & ModuleStatusMask.StatusMask == ModuleStatus.Initialized:
                 self[f'status_{module_id}'].Update(text_color='white', background_color='grey')
                 continue
 

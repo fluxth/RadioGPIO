@@ -144,7 +144,7 @@ class GPIThread(GPIOThread):
                             conn.close()
                     else:
                         conn.close()
-                        self.parent.update_module_status(self, ModuleStatus.ActivityWarning)
+                        self.parent.update_module_status(self, ModuleStatus.Activity | ModuleStatus.Warning)
                         logging.warning(f'Rejected GPI connection from tcp://{addr[0]}:{addr[1]}, not on whitelist!')
 
             elif self.address.protocol == 'udp':
@@ -155,7 +155,7 @@ class GPIThread(GPIOThread):
                     if self.sender_whitelisted(addr):
                         self.process_command(data)
                     else:
-                        self.parent.update_module_status(self, ModuleStatus.ActivityWarning)
+                        self.parent.update_module_status(self, ModuleStatus.Activity | ModuleStatus.Warning)
                         logging.warning(f'Ignored GPI command from udp://{addr[0]}:{addr[1]}, not on whitelist!')
 
         except socket.timeout:
@@ -194,10 +194,10 @@ class GPIThread(GPIOThread):
                 for action in actions:
                     self.parent.run_action_later(action)
 
-                self.parent.update_module_status(self, ModuleStatus.ActivityRunning)
+                self.parent.update_module_status(self, ModuleStatus.Activity | ModuleStatus.Running)
 
             else:
-                self.parent.update_module_status(self, ModuleStatus.ActivityWarning)
+                self.parent.update_module_status(self, ModuleStatus.Activity | ModuleStatus.Warning)
 
 
 class GPOThread(GPIOThread):
@@ -246,7 +246,7 @@ class GPOThread(GPIOThread):
         except socket.error as e:
             # raise exceptions.FxNetworkException(f'GPO connection error', e)
             # TODO: Show messagebox
-            self.parent.update_module_status(self, ModuleStatus.ActivityKeepError)
+            self.parent.update_module_status(self, ModuleStatus.Activity | ModuleStatus.Error | ModuleStatus.KeepActivity)
             logging.error(f'GPO connection error: {e}')
             return False
 
@@ -263,11 +263,11 @@ class GPOThread(GPIOThread):
 
     def send(self, data):
         if self.socket is None:
-            self.parent.update_module_status(self, ModuleStatus.ActivityError)
+            self.parent.update_module_status(self, ModuleStatus.Activity | ModuleStatus.Error)
             return False
 
         if data is None:
-            self.parent.update_module_status(self, ModuleStatus.ActivityError)
+            self.parent.update_module_status(self, ModuleStatus.Activity | ModuleStatus.Error)
             return False
 
         encoding = self.config.get('Encoding', 'utf-8')
@@ -279,11 +279,11 @@ class GPOThread(GPIOThread):
         try:
             logging.info(f'GPO sent data: {data}')
             self.socket.send(data + separator)
-            self.parent.update_module_status(self, ModuleStatus.ActivityRunning)
+            self.parent.update_module_status(self, ModuleStatus.Activity | ModuleStatus.Running)
         except socket.error as e:
             # raise exceptions.FxNetworkException(f'Error sending data', e)
             # TODO: Show messagebox
-            self.parent.update_module_status(self, ModuleStatus.ActivityError)
+            self.parent.update_module_status(self, ModuleStatus.Activity | ModuleStatus.Error)
             logging.error(f'GPO cannot send data: {e}')
             return False
 

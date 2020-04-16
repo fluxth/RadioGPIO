@@ -83,7 +83,7 @@ class HTTPClientThread(HTTPThread):
         method = http_command.get('Method', 'GET')
         url = http_command.get('Url', None)
 
-        self.parent.update_module_status(self, ModuleStatus.ActivityRunning)
+        self.parent.update_module_status(self, ModuleStatus.Activity | ModuleStatus.Running)
             
         exc = None
         try:
@@ -103,7 +103,7 @@ class HTTPClientThread(HTTPThread):
             exc = ('an', e)
 
         if exc is not None:
-            self.parent.update_module_status(self, ModuleStatus.ActivityError)
+            self.parent.update_module_status(self, ModuleStatus.Activity | ModuleStatus.Error)
             self.parent.run_later('UI.show_error').with_args(
                 f'HTTPClient returned with {exc[0]} error:',
                 f'Additional Information:\n{exc[1]}'
