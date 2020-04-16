@@ -9,7 +9,8 @@ import exceptions
 from ui import FxGpioUI
 from threads import ThreadBase, FxQueueItem
 from threads.gpio import GPIThread, GPOThread
-from threads.http import HTTPClientThread
+from threads.http import HTTPClientThread, HTTPServerThread
+from threads.livewire import LivewireThread
 
 import PySimpleGUI as sg
 
@@ -100,8 +101,8 @@ class FxGpioApp(ThreadBase):
         ('GPI', GPIThread),
         ('GPO', GPOThread),
         ('HTTPClient', HTTPClientThread),
-        ('HTTPServer', None),
-        ('Livewire', None),
+        ('HTTPServer', HTTPServerThread),
+        ('Livewire', LivewireThread),
     )
 
     def __init__(self, run_dir, *args, **kwargs):
