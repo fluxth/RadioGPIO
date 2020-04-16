@@ -15,7 +15,7 @@ class ModuleIterator:
         return self
 
     def __next__(self):
-        while self.index < len(self.config):
+        while self.index < len(self.module_map):
             value = None
             
             module = self.module_map[self.index]
