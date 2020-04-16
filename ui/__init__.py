@@ -78,6 +78,10 @@ class FxGpioUI():
             self.main_window.close()
             del self.main_window
 
+    def ui_action_ran(self, sender):
+        if self.main_window_shown:
+            self.main_window.action_ran(sender)
+
     def create_trayicon(self):
         tray_menu = ['TRAY MENU', [f'!{self.app.appname} v{self.app.version}', '---', '&Show/Hide GUI::toggle_gui', 'O&ptions', '---', '&Quit::quit']]
         self.tray = sg.SystemTray(menu=tray_menu, tooltip=self.app.appname, data_base64=APP_ICON_PNG24_BASE64)

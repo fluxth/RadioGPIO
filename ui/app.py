@@ -13,6 +13,8 @@ class MainWindow(WindowBase):
     theme_table = None
     event_map = None
 
+    actionbtn_active = []
+
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
         self.init_event_map()
@@ -82,7 +84,10 @@ class MainWindow(WindowBase):
                         key=f'action_btn.{action}',
                         size=(width, height), 
                         font=global_font,
-                        button_color=btn_color
+                        button_color=btn_color,
+                        metadata={
+                            'color': btn_color
+                        }
                     )
                 ])
 
@@ -172,7 +177,7 @@ class MainWindow(WindowBase):
                     self.ui.app.module_status[module_id] = ModuleStatus.Warning
                 else:
                     self.ui.app.module_status[module_id] = ModuleStatus.Running
-                    
+
                 continue
             
             if status & ModuleStatusMask.StatusMask == ModuleStatus.Running:
@@ -228,18 +233,24 @@ class MainWindow(WindowBase):
             if emap[0] == event:
                 return emap[1](*args)
 
-        # if event == 'Change Theme':
-        #     self.ui.app.config['Interface']['Theme'] = values[0]
-        #     self.ui.app.save_config_file()
-        #     self.ui.app.restart = True
-        #     event = None
-
         for action in self.ui.app.actions:
             if event == action.text:
                 return action.run()
 
+        for key, active_btn in enumerate(self.actionbtn_active):
+            if active_btn[0] > 0:
+                self.actionbtn_active[key] = (active_btn[0] - 1, active_btn[1])
+            else:
+                self[active_btn[1]].Update(button_color=self[active_btn[1]].metadata['color'])
+                self.actionbtn_active.remove(active_btn)
+
     def action_btn_click(self, action):
         self.ui.app.run_action(action)
+
+    def action_ran(self, action):
+        btnkey = f'action_btn.{action.name}'
+        self[btnkey].Update(button_color=('red', 'yellow'))
+        self.actionbtn_active.append((2, btnkey))
 
     def process_func(self, event, values):
         if event is not None:

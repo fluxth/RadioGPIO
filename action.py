@@ -29,6 +29,7 @@ class Action():
     def run(self):
         logging.info(f'Running action {self}...')
         if self.sequence.pre_run() is not False:
+            self.app.UI.ui_action_ran(self)
             self.sequence.run()
             self.app.UI.notify(f'Action "{self.name}" with {self.sequence.length()} sequence items ran successfully!')
         else:
