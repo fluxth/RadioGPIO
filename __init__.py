@@ -25,7 +25,7 @@ class FxGpioApp(ThreadBase):
     appname: str = 'RadioGPIO'
 
     # AppVersion
-    version: str = '1.0'
+    version: str = '0.0.1'
 
     # ThreadName
     name: str = 'MainThread'
