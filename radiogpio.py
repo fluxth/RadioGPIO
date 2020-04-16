@@ -3,7 +3,7 @@ import os
 import sys
 
 import exceptions
-from . import FxGpioApp
+from __init__ import FxGpioApp
 from helpers.app import terminate_process
 
 # Entrypoint for app
